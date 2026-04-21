@@ -2901,6 +2901,7 @@ def playwright_login_ultimate(username: str, password: str, user_id: int) -> dic
     """
     🔥 ULTIMATE PLAYWRIGHT LOGIN - 100% WORKING
     Uses proper stealth, extracts session correctly, creates complete state
+    NO AWAIT - Pure synchronous version
     """
     import json
     import os
@@ -3034,26 +3035,36 @@ def playwright_login_ultimate(username: str, password: str, user_id: int) -> dic
             page.wait_for_selector('input[name="username"]', timeout=15000)
             time.sleep(random.uniform(1, 2))
             
+            # ========== 🔥 FIXED: NO AWAIT - SYNC VERSION ==========
+            
             # Fill username with human-like typing
             print("📝 Entering username...")
             username_input = page.locator('input[name="username"]')
-            await username_input.click()
+            username_input.click()  # ✅ NO AWAIT
             time.sleep(random.uniform(0.3, 0.8))
             
-            # Type like human
+            # Clear existing text
+            username_input.fill('')  # ✅ NO AWAIT
+            time.sleep(0.1)
+            
+            # Type like human (character by character)
             for char in username:
-                await username_input.type(char, delay=random.randint(50, 150))
+                username_input.type(char, delay=random.randint(50, 150))  # ✅ NO AWAIT
                 time.sleep(random.uniform(0.02, 0.08))
             time.sleep(random.uniform(0.5, 1))
             
             # Fill password
             print("🔒 Entering password...")
             password_input = page.locator('input[name="password"]')
-            await password_input.click()
+            password_input.click()  # ✅ NO AWAIT
             time.sleep(random.uniform(0.3, 0.8))
             
+            # Clear existing text
+            password_input.fill('')  # ✅ NO AWAIT
+            time.sleep(0.1)
+            
             for char in password:
-                await password_input.type(char, delay=random.randint(50, 150))
+                password_input.type(char, delay=random.randint(50, 150))  # ✅ NO AWAIT
                 time.sleep(random.uniform(0.02, 0.08))
             time.sleep(random.uniform(0.5, 1))
             
@@ -3062,11 +3073,18 @@ def playwright_login_ultimate(username: str, password: str, user_id: int) -> dic
             login_button = page.locator('button[type="submit"]')
             if login_button.count() == 0:
                 login_button = page.locator('div[role="button"]:has-text("Log in")')
-            await login_button.click()
+            login_button.click()  # ✅ NO AWAIT
             
             # Wait for navigation
             print("⏳ Waiting for login to complete...")
             time.sleep(5)
+            
+            # Wait for URL to change (polling method)
+            for _ in range(30):  # 30 seconds max
+                time.sleep(1)
+                current_url = page.url.lower()
+                if 'login' not in current_url and 'accounts' not in current_url:
+                    break
             
             # Check for 2FA or Challenge
             current_url = page.url.lower()
@@ -3283,51 +3301,8 @@ def fallback_api_login(username: str, password: str, user_id: int, state_file: s
         if not sessionid:
             return {'success': False, 'error': 'Could not extract session ID'}
         
-        # Create complete state
-        expiry = int(time.time()) + (365 * 24 * 3600)
-        csrf_token = secrets.token_urlsafe(16)[:32]
-        
-        state = {
-            "cookies": [
-                {
-                    "name": "sessionid",
-                    "value": sessionid,
-                    "domain": ".instagram.com",
-                    "path": "/",
-                    "expires": expiry,
-                    "httpOnly": True,
-                    "secure": True,
-                    "sameSite": "Lax"
-                },
-                {
-                    "name": "csrftoken",
-                    "value": csrf_token,
-                    "domain": ".instagram.com",
-                    "path": "/",
-                    "expires": expiry,
-                    "httpOnly": False,
-                    "secure": True,
-                    "sameSite": "Lax"
-                },
-                {
-                    "name": "mid",
-                    "value": secrets.token_urlsafe(16)[:32],
-                    "domain": ".instagram.com",
-                    "path": "/",
-                    "expires": expiry,
-                    "httpOnly": False,
-                    "secure": True,
-                    "sameSite": "Lax"
-                }
-            ],
-            "origins": [{
-                "origin": "https://www.instagram.com",
-                "localStorage": [
-                    {"name": "ig_www_route", "value": "accounts/edit"},
-                    {"name": "ig_www_device_id", "value": secrets.token_urlsafe(16)[:32]}
-                ]
-            }]
-        }
+        # Create COMPLETE state using the helper
+        state = create_complete_playwright_state(sessionid, username)
         
         # Save state
         with open(state_file, 'w') as f:
